@@ -75,19 +75,18 @@ def timeDelta(seconds):
         return(f'{seconds}s')
 
 def startMessage(message):
-    sys.stdout.write(Style.BRIGHT+f'> {message} ')
+    sys.stdout.write(f'{Style.BRIGHT}> {message} ')
 
 def endMessage(state, message=None):
     if state:
         if platform.system()=="Windows":
-            sys.stdout.write(Style.BRIGHT+'['+Fore.GREEN+'Y'+Fore.RESET+']\r\n')
+            sys.stdout.write(f'{Style.BRIGHT}[{Fore.GREEN}Y{Fore.RESET}' + ']\r\n')
         else:
-            sys.stdout.write(Style.BRIGHT+'['+Fore.GREEN+'✓'+Fore.RESET+']\r\n')
+            sys.stdout.write(f'{Style.BRIGHT}[{Fore.GREEN}✓{Fore.RESET}' + ']\r\n')
+    elif platform.system()=="Windows":
+        sys.stdout.write(f'{Style.BRIGHT}[{Fore.RED}N{Fore.RESET}' + ']\r\n')
     else:
-        if platform.system()=="Windows":
-            sys.stdout.write(Style.BRIGHT+'['+Fore.RED+'N'+Fore.RESET+']\r\n')
-        else:
-            sys.stdout.write(Style.BRIGHT+'['+Fore.RED+'✘'+Fore.RESET+']\r\n')
+        sys.stdout.write(f'{Style.BRIGHT}[{Fore.RED}✘{Fore.RESET}' + ']\r\n')
 
 
     if not state and message:
@@ -101,11 +100,7 @@ def execute(command):
     return(output.returncode, output.stdout.decode('utf-8'))
 
 def which(appname):
-    if platform.system()=="Windows" :
-        command = 'where'
-    else:
-        command = 'which'
-
+    command = 'where' if platform.system()=="Windows" else 'which'
     status, output = execute(f'{command} {appname}')
 
     if status and output:
@@ -121,7 +116,7 @@ def macSignBinary(file, options, cert):
 
     if options:
         for option in options:
-            extraOptions += option+" "
+            extraOptions += f"{option} "
 
     return(execute(f'codesign --verify --deep --timestamp -o runtime --force {extraOptions} --sign "{cert}" "{file}"'))
 
@@ -155,9 +150,7 @@ def notarizeFile(file, username, password):
         resultCode,result = execute(f'xcrun altool --notarization-info {requestId} -u {username} --password {password}')
 
         if not resultCode:
-            match = statusPattern.search(result)
-
-            if match:
+            if match := statusPattern.search(result):
                 status = match.groupdict()["status"]
 
                 if status=="in progress":
@@ -184,10 +177,7 @@ def deployWindows(args):
     startMessage('Checking for curl...')
 
     if args.curlbin:
-        if os.path.isfile(args.curlbin):
-            curl = args.curlbin
-        else:
-            curl = None
+        curl = args.curlbin if os.path.isfile(args.curlbin) else None
     else:
         curl = which('curl.exe')
 
@@ -219,8 +209,8 @@ def deployWindows(args):
 
     startMessage('Setting up tools directory...')
 
-    if not os.path.exists(f'tools'):
-        os.makedirs(f'tools')
+    if not os.path.exists('tools'):
+        os.makedirs('tools')
 
     endMessage(True)
 
@@ -228,31 +218,30 @@ def deployWindows(args):
 
     signtool = args.signtool
 
-    if args.cert:
-        if not os.path.exists(signtool):
-            startMessage('Downloading SmartCardTools...')
+    if args.cert and not os.path.exists(signtool):
+        startMessage('Downloading SmartCardTools...')
 
-            resultCode, resultOutput = execute(f'cd \"{tempdir}\" && \"{curl}\" -LJO https://www.mgtek.com/files/smartcardtools.zip')
+        resultCode, resultOutput = execute(f'cd \"{tempdir}\" && \"{curl}\" -LJO https://www.mgtek.com/files/smartcardtools.zip')
 
-            if resultCode:
-                endMessage(False, f'unable to download SmartCardTools.\r\n\r\n{resultOutput}\r\n')
-                exit(1)
+        if resultCode:
+            endMessage(False, f'unable to download SmartCardTools.\r\n\r\n{resultOutput}\r\n')
+            exit(1)
 
-            resultCode, resultOutput = execute(f'cd \"{tempdir}\" && \"{curl}\" -LJO ftp://ftp.info-zip.org/pub/infozip/win32/unz600xn.exe & unz600xn -jo unzip.exe')
+        resultCode, resultOutput = execute(f'cd \"{tempdir}\" && \"{curl}\" -LJO ftp://ftp.info-zip.org/pub/infozip/win32/unz600xn.exe & unz600xn -jo unzip.exe')
 
-            if resultCode:
-                endMessage(False, f'unable to download info-zip tools.\r\n\r\n{resultOutput}\r\n')
-                exit(1)
+        if resultCode:
+            endMessage(False, f'unable to download info-zip tools.\r\n\r\n{resultOutput}\r\n')
+            exit(1)
 
-            resultCode, resultOutput = execute(f'\"{tempdir}\\unzip\" \"{tempdir}\\smartcardtools.zip\" -d tools\\smartcardtools')
+        resultCode, resultOutput = execute(f'\"{tempdir}\\unzip\" \"{tempdir}\\smartcardtools.zip\" -d tools\\smartcardtools')
 
-            if resultCode:
-                endMessage(False, f'unable to unzip SmartCardTools.\r\n\r\n{resultOutput}\r\n')
-                exit(1)
+        if resultCode:
+            endMessage(False, f'unable to unzip SmartCardTools.\r\n\r\n{resultOutput}\r\n')
+            exit(1)
 
-            signtool = 'tools\\smartcardtools\\x64\\ScSignTool.exe'
+        signtool = 'tools\\smartcardtools\\x64\\ScSignTool.exe'
 
-            endMessage(True)
+        endMessage(True)
 
     # remove previous deployment files and copy current binaries
 
@@ -299,7 +288,7 @@ def deployWindows(args):
         startMessage('Signing binaries...')
 
         if isRDP:
-            endMessage(False, f'Unable to sign during an RDP session.')
+            endMessage(False, 'Unable to sign during an RDP session.')
             exit(1)
 
         for file in signList:
@@ -310,11 +299,8 @@ def deployWindows(args):
                 exit(1)
 
         endMessage(True)
-    
-    filesString = ''
 
-    for file in files:
-        filesString += f'{file} '
+    filesString = ''.join(f'{file} ' for file in files)
 
     filesString = filesString.strip()
 
@@ -348,7 +334,7 @@ def deployWindows(args):
         startMessage('Signing installer...')
 
         if isRDP:
-            endMessage(False, f'Unable to sign during an RDP session.')
+            endMessage(False, 'Unable to sign during an RDP session.')
             exit(1)
 
         resultCode, resultOutput = winSignBinary(signtool, f'deployment\\{deploymentProject}.exe', args.cert, args.timeserver)
@@ -363,7 +349,14 @@ def deployWindows(args):
 
     # done!
 
-    print(f'\r\n'+Style.BRIGHT+Fore.CYAN+f'Finished! Installer at "deployment\\{deploymentProject}.exe" is '+Fore.GREEN+'ready'+Fore.CYAN+' for distribution.')
+    print(
+        f'\r\n{Style.BRIGHT}{Fore.CYAN}'
+        + f'Finished! Installer at "deployment\\{deploymentProject}.exe" is '
+        + Fore.GREEN
+        + 'ready'
+        + Fore.CYAN
+        + ' for distribution.'
+    )
 
 def deployLinux(args):
 
@@ -375,10 +368,7 @@ def deployLinux(args):
     startMessage('Checking for curl...')
 
     if args.curlbin:
-        if os.path.isfile(args.curlbin):
-            curl = args.curlbin
-        else:
-            curl = None
+        curl = args.curlbin if os.path.isfile(args.curlbin) else None
     else:
         curl = which('curl')
 
@@ -393,25 +383,18 @@ def deployLinux(args):
     startMessage('Checking qtdir...')
 
     if args.qtdir:
-        if os.path.isfile(args.qtdir+'/bin/qmake'):
-            qtdir = args.qtdir
-        else:
-            qtdir = None
+        qtdir = args.qtdir if os.path.isfile(f'{args.qtdir}/bin/qmake') else None
+    elif qmake := which('qmake'):
+        qtdir = parent(os.path.normpath(os.path.dirname(qmake)))
     else:
-        qmake = which('qmake')
-
-        if qmake:
-            qtdir = parent(os.path.normpath(os.path.dirname(qmake)))
-        else:
-            qtdir = None
+        qtdir = None
 
     if not qtdir:
         endMessage(False, 'qt directory could not be found. (see --qtdir).')
         exit(1)
-    else:
-        if not os.path.isdir(qtdir):
-            endMessage(False, 'qt directory could not be found. (see --qtdir).')
-            exit(1)
+    elif not os.path.isdir(qtdir):
+        endMessage(False, 'qt directory could not be found. (see --qtdir).')
+        exit(1)
 
     endMessage(True)
 
@@ -419,8 +402,8 @@ def deployLinux(args):
 
     startMessage('Setting up tools directory...')
 
-    if not os.path.exists(f'tools'):
-        os.makedirs(f'tools')
+    if not os.path.exists('tools'):
+        os.makedirs('tools')
 
     endMessage(True)
 
@@ -481,10 +464,10 @@ def deployLinux(args):
     if os.path.exists(f'bin/{buildArch}/Deploy/'):
         shutil.rmtree(f'bin/{buildArch}/Deploy/')
 
-    if os.path.exists(f'deployment'):
-        shutil.rmtree(f'deployment')
+    if os.path.exists('deployment'):
+        shutil.rmtree('deployment')
 
-    os.makedirs(f'deployment')
+    os.makedirs('deployment')
 
     os.makedirs(f'bin/{buildArch}/Deploy/usr/bin')
     os.makedirs(f'bin/{buildArch}/Deploy/usr/lib')
@@ -494,7 +477,7 @@ def deployLinux(args):
     shutil.copy2(f'bin/{buildArch}/{buildType}/{deploymentProject}', f'bin/{buildArch}/Deploy/usr/bin')
     shutil.copy2(f'installer/{deploymentProject}.png', f'bin/{buildArch}/Deploy/regex101.png')
     shutil.copy2(f'installer/{deploymentProject}.desktop', f'bin/{buildArch}/Deploy/{deploymentProject}.desktop')
-    shutil.copy2(f'installer/AppRun', f'bin/{buildArch}/Deploy/')
+    shutil.copy2('installer/AppRun', f'bin/{buildArch}/Deploy/')
 
     for file in glob.glob(f'bin/{buildArch}/{buildType}/*.so') :
         shutil.copy2(file, f'bin/{buildArch}/Deploy/usr/lib')
@@ -513,13 +496,7 @@ def deployLinux(args):
 
     endMessage(True)
 
-    # create the AppImage
-
-    signParameters = ''
-
-    if args.cert:
-        signParameters = f'-s --sign-key={args.cert} '
-
+    signParameters = f'-s --sign-key={args.cert} ' if args.cert else ''
     startMessage('Creating AppImage...')
 
     resultCode, resultOutput = execute(f'ARCH={buildArch} {appimagetool} -g {signParameters} bin/{buildArch}/Deploy "deployment/{deploymentProject}-{buildArch}.AppImage"')
@@ -532,7 +509,14 @@ def deployLinux(args):
 
     # done!
 
-    print(f'\r\n'+Style.BRIGHT+Fore.CYAN+f'Finished! AppImage at "deployment/{deploymentProject}-{buildArch}.AppImage" is '+Fore.GREEN+'ready'+Fore.CYAN+' for distribution.')
+    print(
+        f'\r\n{Style.BRIGHT}{Fore.CYAN}'
+        + f'Finished! AppImage at "deployment/{deploymentProject}-{buildArch}.AppImage" is '
+        + Fore.GREEN
+        + 'ready'
+        + Fore.CYAN
+        + ' for distribution.'
+    )
 
 def deployMacOS(args):
 
